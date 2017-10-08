@@ -1,2 +1,2 @@
 require "rawhid/version"
-require "rawhid/rawhid"
+require "teensy_rawhid"

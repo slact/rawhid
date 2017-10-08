@@ -1,7 +1,7 @@
 require "mkmf"
 require "rubygems"
 
-extension_name = "rawhid"
+extension_name = "teensy_rawhid"
 
 $srcs = ["#{extension_name}.c"]
 
@@ -16,4 +16,4 @@ end
 
 
 create_header
-create_makefile extension_name
+create_makefile "#{extension_name}"
