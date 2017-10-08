@@ -14,7 +14,7 @@ VALUE RawHIDError;
 VALUE RawHID_new(VALUE class, VALUE vendorId, VALUE productId) {
   void    *dev = NULL;
   int      vId = NUM2INT(vendorId);
-  int      pId = NUM2INT(pId);
+  int      pId = NUM2INT(productId);
   int      devices_opened = rawhid_open(1, &dev, vId, pId, -1, -1);
   if(devices_opened == 0 || dev == NULL) {
     rb_raise(RawHIDError, "Unable to open device");
@@ -38,9 +38,6 @@ VALUE RawHID_send(int argc, VALUE *argv, VALUE class) {
     return INT2NUM(0);
   }
   int sent = rawhid_send(dev, buf, len, timeout);
-  if(sent == -1) {
-    rb_raise(RawHIDError, "Error sending data to device");
-  }
   return INT2NUM(sent);
 }
 
@@ -66,8 +63,8 @@ VALUE RawHID_recv(int argc, VALUE *argv, VALUE class) {
   }
   int received = rawhid_recv(dev, buf, len, timeout);
   
-  if(received == -1) {
-    rb_raise(RawHIDError, "Error receiving data from device");
+  if(received < 0) {
+    return INT2NUM(received);
   }
   data = rb_str_new(buf, received);
   return data;
@@ -78,8 +75,8 @@ void Init_teensy_rawhid() {
   RawHIDError = rb_define_class_under(RawHID, "RawHIDError", rb_eRuntimeError);
   
   rb_define_singleton_method(RawHID, "new", RawHID_new, 2);
-  rb_define_method(RawHID, "send", RawHID_send, -1);
-  rb_define_method(RawHID, "recv", RawHID_recv, -1);
+  rb_define_method(RawHID, "raw_send", RawHID_send, -1);
+  rb_define_method(RawHID, "raw_recv", RawHID_recv, -1);
   
 }
 
