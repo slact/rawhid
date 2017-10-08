@@ -73,7 +73,7 @@ VALUE RawHID_recv(int argc, VALUE *argv, VALUE class) {
   return data;
 }
 
-void Init_teensy_rawhid() {
+void Init_rawhid() {
   RawHID = rb_define_class("RawHID", rb_cObject);
   RawHIDError = rb_define_class_under(RawHID, "RawHIDError", rb_eRuntimeError);
   
