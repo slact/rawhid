@@ -11,12 +11,10 @@ class RawHID
   end
   private :raw_send, :raw_recv
   
-  def send(data, timeout=0)
-    puts "sendy"
+  def write(data, timeout=0)
     if Array === data
       data = data.map(&:chr).join
     end
-    puts "sendy sendy"
     ret = raw_send(data, timeout)
     if ret > 0
       ret
@@ -25,7 +23,7 @@ class RawHID
     end
   end
   
-  def recv(len, timeout)
+  def read(len, timeout)
     ret = raw_recv(len, timeout)
     if String === data
       return ret
