@@ -7,3 +7,8 @@
 /pkg/
 /spec/reports/
 /tmp/
+*.o
+*.gem
+*.so
+ext/rawhid/Makefile
+ext/rawhid/mkmf.log
