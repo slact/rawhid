@@ -14,7 +14,7 @@ when "darwin"
   $defs.push "-DOS_MACOSX"
   $srcs << "hid_MACOSX.c"
 else
-  raise "Don't know ho to build rawhid on #{Gem::Platform.local.os}" yet."
+  raise "Don't know ho to build rawhid on #{Gem::Platform.local.os} yet."
 end
 
 
