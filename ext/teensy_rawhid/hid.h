@@ -1,4 +1,10 @@
+#ifdef OS_LINUX
 #include "hid_LINUX.h"
+#elifdef OS_MACOSX
+#include "hid_MACOSX.h"
+#elifdef OS_WINDOWS
+#include "hid_WINDOWS.h"
+#endif
 
 typedef struct hid_struct hid_t;
 
