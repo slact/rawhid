@@ -32,41 +32,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/hid/IOHIDLib.h>
 
-#include "hid.h"
-
-#define BUFFER_SIZE 64
 
 #define printf(...) // comment this out to get lots of info printed
 
 
-// a list of all opened HID devices, so the caller can
-// simply refer to them by number
-typedef struct hid_struct hid_t;
-typedef struct buffer_struct buffer_t;
-static hid_t *first_hid = NULL;
-static hid_t *last_hid = NULL;
-struct hid_struct {
-	IOHIDDeviceRef ref;
-	int open;
-	uint8_t buffer[BUFFER_SIZE];
-	buffer_t *first_buffer;
-	buffer_t *last_buffer;
-	struct hid_struct *prev;
-	struct hid_struct *next;
-};
-struct buffer_struct {
-	struct buffer_struct *next;
-	uint32_t len;
-	uint8_t buf[BUFFER_SIZE];
-};
-
 // private functions, not intended to be used from outside this file
-static void add_hid(hid_t *);
-static hid_t * get_hid(int);
-static void free_all_hid(void);
 static void hid_close(hid_t *);
 static void attach_callback(void *, IOReturn, void *, IOHIDDeviceRef);
 static void detach_callback(void *, IOReturn, void *hid_mgr, IOHIDDeviceRef dev);
@@ -78,23 +49,21 @@ static void input_callback(void *, IOReturn, void *, IOHIDReportType,
 
 //  rawhid_recv - receive a packet
 //    Inputs:
-//	num = device to receive from (zero based)
+//	hid = device to receive from
 //	buf = buffer to receive packet
 //	len = buffer's size
 //	timeout = time to wait, in milliseconds
 //    Output:
 //	number of bytes received, or -1 on error
 //
-int rawhid_recv(int num, void *buf, int len, int timeout)
+int rawhid_recv(hid_t *hid, void *buf, int len, int timeout)
 {
-	hid_t *hid;
 	buffer_t *b;
 	CFRunLoopTimerRef timer=NULL;
 	CFRunLoopTimerContext context;
 	int ret=0, timeout_occurred=0;
 
 	if (len < 1) return 0;
-	hid = get_hid(num);
 	if (!hid || !hid->open) return -1;
 	if ((b = hid->first_buffer) != NULL) {
 		if (len > b->len) len = b->len;
@@ -179,19 +148,17 @@ void output_callback(void *context, IOReturn ret, void *sender,
 
 //  rawhid_send - send a packet
 //    Inputs:
-//	num = device to transmit to (zero based)
+//	hid = device to transmit to
 //	buf = buffer containing packet to send
 //	len = number of bytes to transmit
 //	timeout = time to wait, in milliseconds
 //    Output:
 //	number of bytes sent, or -1 on error
 //
-int rawhid_send(int num, void *buf, int len, int timeout)
+int rawhid_send(hid_t *hid, void *buf, int len, int timeout)
 {
-	hid_t *hid;
 	int result=-100;
 
-	hid = get_hid(num);
 	if (!hid || !hid->open) return -1;
 #if 1
 	#warning "Send timeout not implemented on MACOSX"
@@ -240,7 +207,7 @@ int rawhid_send(int num, void *buf, int len, int timeout)
 //    Output:
 //	actual number of devices opened
 //
-int rawhid_open(int max, int vid, int pid, int usage_page, int usage)
+int rawhid_open(int max,hid_t *hids int vid, int pid, int usage_page, int usage)
 {
         static IOHIDManagerRef hid_manager=NULL;
         CFMutableDictionaryRef dict;
