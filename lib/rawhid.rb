@@ -11,6 +11,8 @@ class RawHID
   end
   private :raw_send, :raw_recv
   
+  attr_reader :vendorId, :productId
+  
   def write(data, timeout=0)
     if Array === data
       data = data.map(&:chr).join

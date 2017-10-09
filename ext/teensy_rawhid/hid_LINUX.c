@@ -81,38 +81,23 @@
 
 #define printf(...)  // comment this out for lots of info
 
-
-// a list of all opened HID devices, so the caller can
-// simply refer to them by number
-typedef struct hid_struct hid_t;
-struct hid_struct {
-	usb_dev_handle *usb;
-	int open;
-	int iface;
-	int ep_in;
-	int ep_out;
-	struct hid_struct *prev;
-	struct hid_struct *next;
-};
-
-
 // private functions, not intended to be used from outside this file
 static void hid_close(hid_t *hid);
 static int hid_parse_item(uint32_t *val, uint8_t **data, const uint8_t *end);
 
+static volatile int num_open = 0;
 
 //  rawhid_recv - receive a packet
 //    Inputs:
-//	dev = pointer to device to receive from
+//	rawhid = pointer to device to receive from
 //	buf = buffer to receive packet
 //	len = buffer's size
 //	timeout = time to wait, in milliseconds
 //    Output:
 //	number of bytes received, or -1 on error
 //
-int rawhid_recv(void *dev, void *buf, int len, int timeout)
+int rawhid_recv(hid_t *hid, void *buf, int len, int timeout)
 {
-	hid_t *hid = dev;
 	int r;
 
 	if (!hid || !hid->open) return -1;
@@ -131,10 +116,8 @@ int rawhid_recv(void *dev, void *buf, int len, int timeout)
 //    Output:
 //	number of bytes sent, or -1 on error
 //
-int rawhid_send(void *dev, void *buf, int len, int timeout)
+int rawhid_send(hid_t *hid, void *buf, int len, int timeout)
 {
-	hid_t *hid = dev;
-
 	if (!hid || !hid->open) return -1;
 	if (hid->ep_out) {
 		return usb_interrupt_write(hid->usb, hid->ep_out, buf, len, timeout);
@@ -147,7 +130,7 @@ int rawhid_send(void *dev, void *buf, int len, int timeout)
 //
 //    Inputs:
 //	max = maximum number of devices to open
-//	dev = pointer to array of pointers to devices (at least of size 'max')
+//	rawhids = pointer to array of preallocated rawhid structs
 //	vid = Vendor ID, or -1 if any
 //	pid = Product ID, or -1 if any
 //	usage_page = top level usage page, or -1 if any
@@ -155,8 +138,8 @@ int rawhid_send(void *dev, void *buf, int len, int timeout)
 //    Output:
 //	actual number of devices opened
 //
-int rawhid_open(int max, void **devs, int vid, int pid, int usage_page, int usage)
-{
+int rawhid_open(int max, hid_t **hids, int vid, int pid, int usage_page, int usage)
+{  
 	struct usb_bus *bus;
 	struct usb_device *dev;
 	struct usb_interface *iface;
@@ -166,7 +149,7 @@ int rawhid_open(int max, void **devs, int vid, int pid, int usage_page, int usag
 	uint8_t buf[1024], *p;
 	int i, n, len, tag, ep_in, ep_out, count=0, claimed;
 	uint32_t val=0, parsed_usage, parsed_usage_page;
-	hid_t *hid;
+	hid_t *hid = *hids;
 
 	printf("rawhid_open, max=%d\n", max);
 	if (max < 1) return 0;
@@ -245,7 +228,6 @@ int rawhid_open(int max, void **devs, int vid, int pid, int usage_page, int usag
 					usb_release_interface(u, i);
 					continue;
 				}
-				hid = (struct hid_struct *)malloc(sizeof(struct hid_struct));
 				if (!hid) {
 					usb_release_interface(u, i);
 					continue;
@@ -256,8 +238,7 @@ int rawhid_open(int max, void **devs, int vid, int pid, int usage_page, int usag
 				hid->ep_out = ep_out;
 				hid->open = 1;
                 
-				*devs = hid;
-                devs++;
+                hid++;
                 
 				claimed++;
 				count++;
@@ -273,16 +254,15 @@ int rawhid_open(int max, void **devs, int vid, int pid, int usage_page, int usag
 //  rawhid_close - close a device, free associated memory
 //
 //    Inputs:
-//	dev = pointer to device to close
+//	rawhid = pointer to device to close
 //    Output
-//	(nothing)
+//	1 if device was successfully closed, 0 if it isn't open
 //
-void rawhid_close(void *dev)
+int rawhid_close(hid_t *hid)
 {
-	hid_t *hid = dev;
-
-	if (!hid || !hid->open) return;
-	free(dev);
+    if (!hid || !hid->open) return 0;
+    hid_close(hid);
+    return 1;
 }
 
 // Chuck Robey wrote a real HID report parser
@@ -324,12 +304,10 @@ static int hid_parse_item(uint32_t *val, uint8_t **data, const uint8_t *end)
 
 static void hid_close(hid_t *hid)
 {
-	hid_t *p;
-	int others=0;
-
 	usb_release_interface(hid->usb, hid->iface);
 	usb_close(hid->usb);
 	hid->usb = NULL;
+	hid->open = 0;
 }
 
 
